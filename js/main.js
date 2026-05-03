@@ -95,7 +95,7 @@ function openEditModal() {
     overlay.innerHTML = `
         <div class="edit-modal-card">
             <h3 class="edit-modal-title">Site edit request</h3>
-            <p class="edit-modal-help">Describe the change you want made to the site. It opens a GitHub issue you can submit with one click.</p>
+            <p class="edit-modal-help">Describe the change you want made to the site. It will be emailed for review.</p>
             <textarea class="edit-modal-textarea" rows="6" placeholder="e.g. Change the homepage subtitle to..."></textarea>
             <div class="edit-modal-actions">
                 <button type="button" class="edit-modal-btn edit-modal-btn-cancel">Cancel</button>
@@ -132,7 +132,7 @@ function openEditModal() {
     });
     cancelBtn.addEventListener('click', close);
 
-    submitBtn.addEventListener('click', () => {
+    submitBtn.addEventListener('click', async () => {
         const text = textarea.value.trim();
         if (!text) {
             card.classList.remove('edit-modal-shake');
@@ -140,14 +140,33 @@ function openEditModal() {
             card.classList.add('edit-modal-shake');
             return;
         }
-        const params = new URLSearchParams({
-            title: 'Site edit request',
-            body: text,
-            labels: 'edit-request',
-        });
-        window.open(`https://github.com/harrisinnola/ericaharris-site/issues/new?${params}`, '_blank', 'noopener');
-        close();
-        showToast('Sent ↗');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending…';
+        try {
+            const res = await fetch('https://formsubmit.co/ajax/harris.in.nola@gmail.com', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                    _subject: 'Site edit request',
+                    _template: 'box',
+                    page: location.href,
+                    message: text,
+                }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.success === 'false') {
+                throw new Error(data.message || 'send failed');
+            }
+            close();
+            showToast('Sent ✓');
+        } catch (err) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit';
+            card.classList.remove('edit-modal-shake');
+            void card.offsetWidth;
+            card.classList.add('edit-modal-shake');
+            showToast('Failed to send — try again');
+        }
     });
 }
 
